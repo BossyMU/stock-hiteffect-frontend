@@ -4,7 +4,8 @@ export type OrderStatus = 'unpaid' | 'paid' | 'cancelled' | 'delivered'
 export type PaymentMethod = 'Cash' | 'PromptPay' | 'Bank Transfer' | 'Credit Card'
 
 export interface OrderItem {
-  cardId: string
+  /** null when the card has since been removed from stock. */
+  cardId: string | null
   cardName: string
   condition: Condition
   foil: FoilType

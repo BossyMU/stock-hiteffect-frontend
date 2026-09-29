@@ -2,15 +2,13 @@ import { useState } from 'react'
 import { CatalogSearchSection } from '@/components/cards'
 import { FieldLabel, Modal, ModalActions, TextInput } from '@/components/ui'
 import { FOIL_FIELDS, FOIL_STYLES } from '@/constants/card'
-import type { Card, CatalogCard, FoilType } from '@/types'
+import type { CatalogCard, FoilType, NewCard } from '@/types'
 import { cn } from '@/utils/cn'
-import { uid } from '@/utils/id'
 
 /** Foil column order used by this form (matches the design). */
 const FORM_FOILS: FoilType[] = ['Non-Foil', 'Rainbow Foil', 'Cold Foil']
 
-const emptyCard = (): Card => ({
-  id: uid(),
+const EMPTY_CARD: NewCard = {
   name: '',
   set: '',
   setCode: '',
@@ -23,25 +21,36 @@ const emptyCard = (): Card => ({
   sellPriceCF: 0,
   sellPriceRF: 0,
   rarity: 'Rare',
-})
+  catalogCardId: null,
+}
 
 interface AddCardModalProps {
-  onSave: (card: Card) => void
+  onSave: (card: NewCard) => Promise<boolean>
   onClose: () => void
 }
 
 /** Pick a card from the catalog and enter its per-foil stock. */
 export function AddCardModal({ onSave, onClose }: AddCardModalProps) {
-  const [form, setForm] = useState<Card>(emptyCard)
+  const [form, setForm] = useState<NewCard>(EMPTY_CARD)
+  const [saving, setSaving] = useState(false)
 
-  const setNumber = (field: keyof Card, value: number) => setForm((f) => ({ ...f, [field]: value }))
+  const setNumber = (field: keyof NewCard, value: number) => setForm((f) => ({ ...f, [field]: value }))
   const handleCatalogSelect = (c: CatalogCard) =>
-    setForm((f) => ({ ...f, name: c.name, set: c.set, setCode: c.setCode, rarity: c.rarity }))
+    setForm((f) => ({
+      ...f,
+      name: c.name,
+      set: c.set,
+      setCode: c.setCode,
+      rarity: c.rarity,
+      catalogCardId: c.cardId,
+    }))
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name) return
-    onSave(form)
-    onClose()
+    setSaving(true)
+    const ok = await onSave(form)
+    setSaving(false)
+    if (ok) onClose()
   }
 
   return (
@@ -58,7 +67,13 @@ export function AddCardModal({ onSave, onClose }: AddCardModalProps) {
 
       <FoilStockGrid form={form} onChange={setNumber} />
 
-      <ModalActions className="mt-6" onCancel={onClose} onConfirm={handleSave} confirmLabel="Add to Stock" />
+      <ModalActions
+        className="mt-6"
+        onCancel={onClose}
+        onConfirm={() => void handleSave()}
+        confirmDisabled={saving}
+        confirmLabel="Add to Stock"
+      />
     </Modal>
   )
 }
@@ -67,8 +82,8 @@ function FoilStockGrid({
   form,
   onChange,
 }: {
-  form: Card
-  onChange: (field: keyof Card, value: number) => void
+  form: NewCard
+  onChange: (field: keyof NewCard, value: number) => void
 }) {
   return (
     <div className="grid grid-cols-3 gap-3">
@@ -86,7 +101,7 @@ function FoilStockGrid({
               type="number"
               min={0}
               className={cn('w-full font-mono', style.border, style.text)}
-              value={form[key] as number}
+              value={form[key]}
               onChange={(e) => onChange(key, +e.target.value)}
             />
           </div>

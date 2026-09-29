@@ -1,9 +1,12 @@
-import type { Card, FoilType, Rarity } from '@/types'
+import type { FoilType, Rarity } from '@/types'
 
 export const FOIL_TYPES: FoilType[] = ['Non-Foil', 'Cold Foil', 'Rainbow Foil']
 
 /** Maps each foil finish to the Card fields holding its stock and sell price. */
-export const FOIL_FIELDS: Record<FoilType, { stock: keyof Card; price: keyof Card }> = {
+type StockField = 'stockNF' | 'stockCF' | 'stockRF'
+type PriceField = 'sellPriceNF' | 'sellPriceCF' | 'sellPriceRF'
+
+export const FOIL_FIELDS: Record<FoilType, { stock: StockField; price: PriceField }> = {
   'Non-Foil': { stock: 'stockNF', price: 'sellPriceNF' },
   'Cold Foil': { stock: 'stockCF', price: 'sellPriceCF' },
   'Rainbow Foil': { stock: 'stockRF', price: 'sellPriceRF' },
@@ -49,10 +52,17 @@ export const FOIL_STYLES: Record<FoilType, FoilStyle> = {
 }
 
 export const RARITY_TEXT: Record<Rarity, string> = {
+  Fabled: 'text-rarity-fabled',
   Legendary: 'text-rarity-legendary',
   Majestic: 'text-rarity-majestic',
+  'Super Rare': 'text-rarity-super-rare',
   Rare: 'text-rarity-rare',
   Common: 'text-rarity-common',
   Token: 'text-rarity-token',
   Basic: 'text-rarity-basic',
+  Marvel: 'text-rarity-marvel',
+  Promo: 'text-rarity-promo',
 }
+
+/** Text color class for a rarity; the server may send rarities this app doesn't know yet. */
+export const rarityTextClass = (rarity: string) => RARITY_TEXT[rarity as Rarity] ?? 'text-muted-foreground'

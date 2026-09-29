@@ -8,7 +8,7 @@ import { QuickPercentButtons } from './QuickPercentButtons'
 
 interface UpdatePriceModalProps {
   item: WatchItem
-  onSave: (item: WatchItem) => void
+  onSave: (item: WatchItem) => Promise<boolean>
   onClose: () => void
 }
 
@@ -16,11 +16,12 @@ interface UpdatePriceModalProps {
 export function UpdatePriceModal({ item, onSave, onClose }: UpdatePriceModalProps) {
   const [marketPrice, setMarketPrice] = useState(String(latestPrice(item) || ''))
   const [acceptPrice, setAcceptPrice] = useState(String(item.acceptedPrice ?? ''))
+  const [saving, setSaving] = useState(false)
 
   const mp = parseFloat(marketPrice) || 0
   const derivedTarget = item.targetPct != null && mp > 0 ? Math.round((mp * item.targetPct) / 100) : null
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const date = today()
     const history = item.priceHistory
     const lastEntry = history[history.length - 1]
@@ -32,13 +33,15 @@ export function UpdatePriceModal({ item, onSave, onClose }: UpdatePriceModalProp
           : [...history, { date, price: mp }]
         : history
     const ap = parseFloat(acceptPrice)
-    onSave({
+    setSaving(true)
+    const ok = await onSave({
       ...item,
       priceHistory,
       targetPrice: derivedTarget ?? item.targetPrice,
       acceptedPrice: isNaN(ap) ? item.acceptedPrice : ap,
     })
-    onClose()
+    setSaving(false)
+    if (ok) onClose()
   }
 
   return (
@@ -94,7 +97,12 @@ export function UpdatePriceModal({ item, onSave, onClose }: UpdatePriceModalProp
         )}
       </div>
 
-      <ModalActions onCancel={onClose} onConfirm={handleSave} confirmLabel="Save" />
+      <ModalActions
+        onCancel={onClose}
+        onConfirm={() => void handleSave()}
+        confirmDisabled={saving}
+        confirmLabel="Save"
+      />
     </Modal>
   )
 }

@@ -2,6 +2,8 @@
 
 A point-of-sale dashboard for a trading card game shop. It covers stock by foil finish, sales orders, receipt lookup and a price watchlist.
 
+Data comes from the REST API in [stock-hiteffect-backend](../stock-hiteffect-backend), which stores everything in PostgreSQL and serves the Flesh and Blood card catalog.
+
 It's built from the [TCG Shop Dashboard](https://www.figma.com/make/5jhrPQfYzCCMMbz6vufKus/TCG-Shop-Dashboard) Figma Make design.
 
 **Live:** https://bossymu.github.io/stock-hiteffect-frontend/
@@ -16,11 +18,25 @@ It's built from the [TCG Shop Dashboard](https://www.figma.com/make/5jhrPQfYzCCM
 
 ## Getting started
 
+Start the backend first (see its README). By default the frontend calls `http://localhost:3000/api`.
+
 ```bash
-nvm use          # Node version from .nvmrc
+nvm use                  # Node version from .nvmrc
 npm install
-npm run dev      # http://localhost:5173
+cp .env.example .env     # optional: only if the API isn't on http://localhost:3000/api
+npm run dev              # http://localhost:5173
 ```
+
+If the API can't be reached, the app shows "Can't load shop data" with a Retry button.
+
+### Configuration
+
+| Variable            | Default                     | What it is                                        |
+| ------------------- | --------------------------- | ------------------------------------------------- |
+| `VITE_API_BASE_URL` | `http://localhost:3000/api` | Backend URL, including the `/api` prefix          |
+| `VITE_BASE_PATH`    | `/`                         | Path the app is served from (set by CI for Pages) |
+
+The backend only accepts requests from origins listed in its `CORS_ORIGINS` setting. That's `http://localhost:5173` by default.
 
 | Script              | What it does                         |
 | ------------------- | ------------------------------------ |
@@ -63,10 +79,10 @@ src/
 │   ├── stock/components/    # Components used only by that page
 │   └── watchlist/components/
 │
-├── context/                 # ShopDataContext: cards, orders and watchlist state
-├── hooks/                   # useClickOutside, usePagination
+├── api/                     # Backend client: fetch wrapper and one module per resource
+├── context/                 # ShopDataContext: loads data from the API and runs every change through it
+├── hooks/                   # useClickOutside, usePagination, useDebouncedValue
 ├── constants/               # Status, foil, rarity and priority config; color tones
-├── data/                    # Card catalog and seed (mock) data
 ├── types/                   # Domain types: Card, Order, WatchItem
 └── utils/                   # Formatting, card calculations, class-name helper
 ```
@@ -77,7 +93,8 @@ src/
 - **Styling.** Use Tailwind classes with the theme tokens (`bg-card`, `text-muted-foreground`, `text-foil-cf`, `text-rarity-legendary`, …). Don't hard-code hex values in components. To change a color, edit `src/styles/index.css`.
 - **Dynamic colors.** Colors that depend on data, like order status or watch priority, map to a _tone_ in `src/constants/tone.ts`. Write the full class names out there so Tailwind can detect them.
 - **Imports.** `@/` points to `src/`.
-- **Data.** State lives in memory in `ShopDataContext`, starting from the seed data in `src/data/`. To connect a backend, replace the state setters in that provider with API calls. The pages don't need to change.
+- **Data.** Pages read and change data only through `useShopData()`. Its actions call the API, store the object the server returns, and resolve to `true` or `false`. On failure the layout shows an error toast, and modals stay open so nothing typed is lost. Calls that belong to a single component, like the catalog search or receipt lookup, use `src/api/` directly.
+- **Dates.** "Today" is computed in `Asia/Bangkok` (`src/utils/date.ts`), the same timezone the backend uses.
 
 ## Deployment
 
@@ -87,3 +104,12 @@ The site is hosted on **GitHub Pages**. The workflow in `.github/workflows/deplo
 - On pushes to `main`, it also deploys `dist/` to Pages.
 
 It builds with `VITE_BASE_PATH=/<repo-name>/` and copies `index.html` to `404.html`, so deep links like `/stock` work on Pages.
+
+The live site needs a backend it can reach:
+
+1. Host stock-hiteffect-backend somewhere public over HTTPS.
+2. Add `https://bossymu.github.io` to the backend's `CORS_ORIGINS`.
+3. In this repo, go to **Settings → Secrets and variables → Actions → Variables** and set `VITE_API_BASE_URL` to the backend URL, e.g. `https://api.example.com/api`.
+4. Re-run the workflow.
+
+Until then, the Pages build calls `http://localhost:3000/api`.

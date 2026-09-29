@@ -13,10 +13,13 @@ export interface WatchItem {
   setCode: string
   rarity: Rarity
   foil: FoilType
-  targetPct?: number
+  targetPct?: number | null
   targetPrice: number
-  acceptedPrice?: number
+  acceptedPrice?: number | null
   priceHistory: PricePoint[]
   note: string
   priority: WatchPriority
 }
+
+/** A watch item to create; the server assigns the id. */
+export type NewWatchItem = Omit<WatchItem, 'id'>

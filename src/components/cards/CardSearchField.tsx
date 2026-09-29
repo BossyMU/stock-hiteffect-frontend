@@ -1,16 +1,18 @@
-import { useCallback, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { catalogApi, isAbort } from '@/api'
 import { FieldLabel, SuggestionItem, SuggestionMenu, TextInput } from '@/components/ui'
-import { RARITY_TEXT } from '@/constants/card'
-import { CARD_CATALOG } from '@/data/cardCatalog'
+import { rarityTextClass } from '@/constants/card'
 import { useClickOutside } from '@/hooks/useClickOutside'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import type { CatalogCard } from '@/types'
 
 const MAX_RESULTS = 10
 
-/** Autocomplete over the card catalog, matching on card name or set code. */
+/** Autocomplete over the master data card catalog, matching on card name or set code. */
 export function CardSearchField({ onSelect }: { onSelect: (card: CatalogCard) => void }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
+  const [results, setResults] = useState<CatalogCard[]>([])
   const ref = useRef<HTMLDivElement>(null)
   const inputId = useId()
   useClickOutside(
@@ -18,12 +20,21 @@ export function CardSearchField({ onSelect }: { onSelect: (card: CatalogCard) =>
     useCallback(() => setOpen(false), []),
   )
 
-  const q = query.trim().toLowerCase()
-  const results = q
-    ? CARD_CATALOG.filter(
-        (c) => c.name.toLowerCase().includes(q) || c.setCode.toLowerCase().includes(q),
-      ).slice(0, MAX_RESULTS)
-    : []
+  const q = useDebouncedValue(query.trim())
+
+  useEffect(() => {
+    if (!q) return
+    const controller = new AbortController()
+    catalogApi
+      .search(q, MAX_RESULTS, controller.signal)
+      .then(setResults)
+      .catch((err) => {
+        if (!isAbort(err)) setResults([])
+      })
+    return () => controller.abort()
+  }, [q])
+
+  const visible = query.trim() ? results : []
 
   const select = (card: CatalogCard) => {
     onSelect(card)
@@ -46,15 +57,19 @@ export function CardSearchField({ onSelect }: { onSelect: (card: CatalogCard) =>
         }}
         onFocus={() => setOpen(true)}
       />
-      {open && results.length > 0 && (
+      {open && visible.length > 0 && (
         <SuggestionMenu>
-          {results.map((c) => (
-            <SuggestionItem key={`${c.setCode}-${c.name}`} className="px-3 py-2.5" onSelect={() => select(c)}>
+          {visible.map((c) => (
+            <SuggestionItem
+              key={`${c.setCode}-${c.cardId}-${c.name}`}
+              className="px-3 py-2.5"
+              onSelect={() => select(c)}
+            >
               <p className="text-sm font-medium text-foreground">{c.name}</p>
               <p className="mt-0.5 text-xs">
                 <span className="font-mono font-semibold text-primary">{c.setCode}</span>
                 <span className="ml-1.5 text-muted-foreground">{c.set}</span>
-                <span className={`ml-2 ${RARITY_TEXT[c.rarity]}`}>· {c.rarity}</span>
+                <span className={`ml-2 ${rarityTextClass(c.rarity)}`}>· {c.rarity}</span>
               </p>
             </SuggestionItem>
           ))}

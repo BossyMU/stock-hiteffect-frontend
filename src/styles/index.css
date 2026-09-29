@@ -37,12 +37,16 @@
   --color-foil-rf: var(--foil-rf);
 
   /* Card rarities */
+  --color-rarity-fabled: var(--rarity-fabled);
   --color-rarity-legendary: var(--rarity-legendary);
   --color-rarity-majestic: var(--rarity-majestic);
+  --color-rarity-super-rare: var(--rarity-super-rare);
   --color-rarity-rare: var(--rarity-rare);
   --color-rarity-common: var(--rarity-common);
   --color-rarity-token: var(--rarity-token);
   --color-rarity-basic: var(--rarity-basic);
+  --color-rarity-marvel: var(--rarity-marvel);
+  --color-rarity-promo: var(--rarity-promo);
 }
 
 :root {
@@ -73,12 +77,16 @@
   --foil-cf: #7ec8e3;
   --foil-rf: #c084fc;
 
+  --rarity-fabled: #ff7a45;
   --rarity-legendary: #f0a500;
   --rarity-majestic: #c084fc;
+  --rarity-super-rare: #7ec8e3;
   --rarity-rare: #5b8fd9;
   --rarity-common: #7a7890;
   --rarity-token: #4caf7d;
   --rarity-basic: #4a4a5a;
+  --rarity-marvel: #f472b6;
+  --rarity-promo: #b4b0c8;
 }
 
 @layer base {

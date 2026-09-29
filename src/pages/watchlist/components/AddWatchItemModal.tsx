@@ -2,11 +2,10 @@ import { useState } from 'react'
 import { CatalogSearchSection } from '@/components/cards'
 import { FieldLabel, FoilBadge, Modal, ModalActions, Overline, Select, TextInput } from '@/components/ui'
 import { PRIORITY_CONFIG, WATCH_PRIORITIES } from '@/constants/watchlist'
-import type { Card, CatalogCard, FoilType, WatchItem, WatchPriority } from '@/types'
+import type { Card, CatalogCard, FoilType, NewWatchItem, WatchPriority } from '@/types'
 import { foilSellPrice } from '@/utils/card'
 import { today } from '@/utils/date'
 import { formatBaht } from '@/utils/format'
-import { uid } from '@/utils/id'
 import { QuickPercentButtons } from './QuickPercentButtons'
 
 /** Foil option order used by this form (matches the design). */
@@ -14,7 +13,7 @@ const FORM_FOILS: FoilType[] = ['Non-Foil', 'Rainbow Foil', 'Cold Foil']
 
 interface AddWatchItemModalProps {
   cards: Card[]
-  onSave: (item: WatchItem) => void
+  onSave: (item: NewWatchItem) => Promise<boolean>
   onClose: () => void
 }
 
@@ -23,6 +22,7 @@ export function AddWatchItemModal({ cards, onSave, onClose }: AddWatchItemModalP
   const [foil, setFoil] = useState<FoilType>('Non-Foil')
   const [priority, setPriority] = useState<WatchPriority>('normal')
   const [acceptPrice, setAcceptPrice] = useState('')
+  const [saving, setSaving] = useState(false)
 
   // Market price comes from our own stock listing of the same card, if any.
   const stockCard = selected
@@ -30,21 +30,22 @@ export function AddWatchItemModal({ cards, onSave, onClose }: AddWatchItemModalP
     : null
   const marketPrice = stockCard ? foilSellPrice(stockCard, foil) : 0
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!selected) return
-    onSave({
-      id: uid(),
+    setSaving(true)
+    const ok = await onSave({
       cardName: selected.name,
       setCode: selected.setCode,
       rarity: selected.rarity,
       foil,
       targetPrice: 0,
-      acceptedPrice: parseFloat(acceptPrice) || undefined,
+      acceptedPrice: parseFloat(acceptPrice) || null,
       priceHistory: marketPrice > 0 ? [{ date: today(), price: marketPrice }] : [],
       note: '',
       priority,
     })
-    onClose()
+    setSaving(false)
+    if (ok) onClose()
   }
 
   return (
@@ -136,8 +137,8 @@ export function AddWatchItemModal({ cards, onSave, onClose }: AddWatchItemModalP
       <ModalActions
         className="mt-6"
         onCancel={onClose}
-        onConfirm={handleSave}
-        confirmDisabled={!selected}
+        onConfirm={() => void handleSave()}
+        confirmDisabled={!selected || saving}
         confirmLabel="Add to Watchlist"
       />
     </Modal>

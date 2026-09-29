@@ -3,9 +3,9 @@ import type { Card, FoilType } from '@/types'
 
 export const totalStock = (c: Card) => (c.stockNF ?? 0) + (c.stockCF ?? 0) + (c.stockRF ?? 0)
 
-export const foilStock = (c: Card, foil: FoilType) => (c[FOIL_FIELDS[foil].stock] as number) ?? 0
+export const foilStock = (c: Card, foil: FoilType) => c[FOIL_FIELDS[foil].stock] ?? 0
 
-export const foilSellPrice = (c: Card, foil: FoilType) => (c[FOIL_FIELDS[foil].price] as number) ?? 0
+export const foilSellPrice = (c: Card, foil: FoilType) => c[FOIL_FIELDS[foil].price] ?? 0
 
 /** Sell price averaged across foils, weighted by stock (plain average when out of stock). */
 export const avgSellPrice = (c: Card): number => {

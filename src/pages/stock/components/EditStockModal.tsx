@@ -7,7 +7,7 @@ import { cn } from '@/utils/cn'
 
 interface EditStockModalProps {
   card: Card
-  onSave: (card: Card) => void
+  onSave: (card: Card) => Promise<boolean>
   onClose: () => void
 }
 
@@ -19,13 +19,17 @@ export function EditStockModal({ card, onSave, onClose }: EditStockModalProps) {
     'Rainbow Foil': foilStock(card, 'Rainbow Foil'),
   }))
 
+  const [saving, setSaving] = useState(false)
+
   const setQty = (foil: FoilType, qty: number) => setStock((s) => ({ ...s, [foil]: Math.max(0, qty) }))
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const updated = { ...card }
-    for (const foil of FOIL_TYPES) (updated[FOIL_FIELDS[foil].stock] as number) = stock[foil]
-    onSave(updated)
-    onClose()
+    for (const foil of FOIL_TYPES) updated[FOIL_FIELDS[foil].stock] = stock[foil]
+    setSaving(true)
+    const ok = await onSave(updated)
+    setSaving(false)
+    if (ok) onClose()
   }
 
   return (
@@ -43,7 +47,13 @@ export function EditStockModal({ card, onSave, onClose }: EditStockModalProps) {
         ))}
       </div>
 
-      <ModalActions className="mt-6" onCancel={onClose} onConfirm={handleSave} confirmLabel="Update Stock" />
+      <ModalActions
+        className="mt-6"
+        onCancel={onClose}
+        onConfirm={() => void handleSave()}
+        confirmDisabled={saving}
+        confirmLabel="Update Stock"
+      />
     </Modal>
   )
 }

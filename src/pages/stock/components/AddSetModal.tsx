@@ -1,11 +1,10 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { catalogApi, errorMessage, isAbort } from '@/api'
 import { Button, ModalCancelButton, Modal, SuggestionItem, SuggestionMenu } from '@/components/ui'
-import { FOIL_STYLES, RARITY_TEXT } from '@/constants/card'
-import { CARD_CATALOG, CATALOG_SETS } from '@/data/cardCatalog'
+import { FOIL_STYLES, rarityTextClass } from '@/constants/card'
 import { useClickOutside } from '@/hooks/useClickOutside'
-import type { Card, CatalogCard } from '@/types'
+import type { CatalogCard, CatalogSet, NewCard } from '@/types'
 import { cn } from '@/utils/cn'
-import { uid } from '@/utils/id'
 
 interface SetCardEntry {
   catalog: CatalogCard
@@ -23,17 +22,12 @@ const STOCK_COLUMNS: { field: StockField; style: (typeof FOIL_STYLES)[keyof type
   { field: 'stockRF', style: FOIL_STYLES['Rainbow Foil'] },
 ]
 
-const setSummary = (set: string) => {
-  const cards = CARD_CATALOG.filter((c) => c.set === set)
-  return `${cards[0]?.setCode} · ${cards.length} cards`
-}
-
-const toCard = (e: SetCardEntry): Card => ({
-  id: uid(),
+const toCard = (e: SetCardEntry): NewCard => ({
   name: e.catalog.name,
   set: e.catalog.set,
   setCode: e.catalog.setCode,
   rarity: e.catalog.rarity,
+  catalogCardId: e.catalog.cardId,
   condition: 'NM',
   stockNF: e.stockNF,
   stockCF: e.stockCF,
@@ -45,39 +39,67 @@ const toCard = (e: SetCardEntry): Card => ({
 })
 
 interface AddSetModalProps {
-  onSave: (cards: Card[]) => void
+  onSave: (cards: NewCard[]) => Promise<boolean>
   onClose: () => void
 }
 
 /** Bulk-add cards from a whole set, choosing which cards and their per-foil stock. */
 export function AddSetModal({ onSave, onClose }: AddSetModalProps) {
+  const [sets, setSets] = useState<CatalogSet[]>([])
   const [setQuery, setSetQuery] = useState('')
-  const [chosenSet, setChosenSet] = useState<string | null>(null)
+  const [chosenSet, setChosenSet] = useState<CatalogSet | null>(null)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [entries, setEntries] = useState<SetCardEntry[]>([])
+  const [loadingCards, setLoadingCards] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
+  const cardsRequest = useRef<AbortController | null>(null)
   useClickOutside(
     searchRef,
     useCallback(() => setShowSuggestions(false), []),
   )
 
+  useEffect(() => {
+    const controller = new AbortController()
+    catalogApi
+      .sets(controller.signal)
+      .then(setSets)
+      .catch((err) => {
+        if (!isAbort(err)) setLoadError(errorMessage(err))
+      })
+    return () => {
+      controller.abort()
+      cardsRequest.current?.abort()
+    }
+  }, [])
+
   const q = setQuery.toLowerCase()
-  const filteredSets = CATALOG_SETS.filter((s) => !q || s.toLowerCase().includes(q))
+  const filteredSets = sets.filter(
+    (s) => !q || s.name.toLowerCase().includes(q) || s.setCode.toLowerCase().includes(q),
+  )
   const selectedCount = entries.filter((e) => e.selected).length
 
-  const selectSet = (set: string) => {
+  const selectSet = async (set: CatalogSet) => {
     setChosenSet(set)
-    setSetQuery(set)
+    setSetQuery(set.name)
     setShowSuggestions(false)
-    setEntries(
-      CARD_CATALOG.filter((c) => c.set === set).map((c) => ({
-        catalog: c,
-        selected: true,
-        stockNF: 0,
-        stockCF: 0,
-        stockRF: 0,
-      })),
-    )
+    setEntries([])
+    setLoadError(null)
+    setLoadingCards(true)
+
+    cardsRequest.current?.abort()
+    const controller = new AbortController()
+    cardsRequest.current = controller
+    try {
+      const cards = await catalogApi.setCards(set.setCode, controller.signal)
+      setEntries(cards.map((c) => ({ catalog: c, selected: true, stockNF: 0, stockCF: 0, stockRF: 0 })))
+      setLoadingCards(false)
+    } catch (err) {
+      if (isAbort(err)) return
+      setLoadError(errorMessage(err))
+      setLoadingCards(false)
+    }
   }
 
   const updateEntry = (idx: number, patch: Partial<SetCardEntry>) =>
@@ -85,12 +107,16 @@ export function AddSetModal({ onSave, onClose }: AddSetModalProps) {
 
   const toggleAll = (selected: boolean) => setEntries((prev) => prev.map((e) => ({ ...e, selected })))
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const newCards = entries.filter((e) => e.selected).map(toCard)
     if (newCards.length === 0) return
-    onSave(newCards)
-    onClose()
+    setSaving(true)
+    const ok = await onSave(newCards)
+    setSaving(false)
+    if (ok) onClose()
   }
+
+  const canSave = selectedCount > 0 && !saving
 
   return (
     <Modal onClose={onClose} className="flex max-h-[90vh] max-w-3xl flex-col" labelledBy="add-set-title">
@@ -117,12 +143,14 @@ export function AddSetModal({ onSave, onClose }: AddSetModalProps) {
             <SuggestionMenu className="max-h-52 bg-card">
               {filteredSets.map((s) => (
                 <SuggestionItem
-                  key={s}
+                  key={s.setCode}
                   className="px-4 py-2.5 text-sm text-foreground"
-                  onSelect={() => selectSet(s)}
+                  onSelect={() => void selectSet(s)}
                 >
-                  <span className="font-medium">{s}</span>
-                  <span className="ml-2 font-mono text-xs text-muted-foreground">{setSummary(s)}</span>
+                  <span className="font-medium">{s.name}</span>
+                  <span className="ml-2 font-mono text-xs text-muted-foreground">
+                    {s.setCode} · {s.cardCount} cards
+                  </span>
                 </SuggestionItem>
               ))}
             </SuggestionMenu>
@@ -164,7 +192,7 @@ export function AddSetModal({ onSave, onClose }: AddSetModalProps) {
               <tbody>
                 {entries.map((entry, idx) => (
                   <tr
-                    key={entry.catalog.name}
+                    key={`${entry.catalog.cardId}-${entry.catalog.name}`}
                     className={cn(
                       'border-b border-border',
                       entry.selected ? 'bg-card' : 'bg-secondary opacity-45',
@@ -183,7 +211,7 @@ export function AddSetModal({ onSave, onClose }: AddSetModalProps) {
                       <p className="text-xs font-medium leading-tight">{entry.catalog.name}</p>
                     </td>
                     <td className="px-3 py-2">
-                      <span className={cn('text-xs', RARITY_TEXT[entry.catalog.rarity])}>
+                      <span className={cn('text-xs', rarityTextClass(entry.catalog.rarity))}>
                         {entry.catalog.rarity}
                       </span>
                     </td>
@@ -210,13 +238,23 @@ export function AddSetModal({ onSave, onClose }: AddSetModalProps) {
         </>
       )}
 
-      {chosenSet && entries.length === 0 && (
+      {chosenSet && loadingCards && (
+        <div className="flex flex-1 items-center justify-center py-12 text-sm text-muted-foreground">
+          Loading cards…
+        </div>
+      )}
+
+      {loadError && (
+        <div className="flex flex-1 items-center justify-center py-12 text-sm text-danger">{loadError}</div>
+      )}
+
+      {chosenSet && !loadingCards && !loadError && entries.length === 0 && (
         <div className="flex flex-1 items-center justify-center py-12 text-sm text-muted-foreground">
           No cards found for this set in the catalog.
         </div>
       )}
 
-      {!chosenSet && (
+      {!chosenSet && !loadError && (
         <div className="flex flex-1 items-center justify-center py-16 text-sm text-muted-foreground">
           Select a set above to see its cards.
         </div>
@@ -227,16 +265,18 @@ export function AddSetModal({ onSave, onClose }: AddSetModalProps) {
         <ModalCancelButton onClick={onClose} />
         <button
           type="button"
-          onClick={handleSave}
-          disabled={selectedCount === 0}
+          onClick={() => void handleSave()}
+          disabled={!canSave}
           className={cn(
             'rounded px-5 py-2 text-sm font-semibold',
-            selectedCount > 0
+            canSave
               ? 'bg-primary text-primary-foreground'
               : 'cursor-not-allowed bg-muted text-muted-foreground',
           )}
         >
-          Add {selectedCount > 0 ? `${selectedCount} Card${selectedCount > 1 ? 's' : ''}` : 'Cards'}
+          {saving
+            ? 'Adding…'
+            : `Add ${selectedCount > 0 ? `${selectedCount} Card${selectedCount > 1 ? 's' : ''}` : 'Cards'}`}
         </button>
       </div>
     </Modal>

@@ -1,5 +1,5 @@
 import { Button, DataTable, RemoveButton, TableCell, TableRow } from '@/components/ui'
-import { FOIL_STYLES, FOIL_TYPES, RARITY_TEXT } from '@/constants/card'
+import { FOIL_STYLES, FOIL_TYPES, rarityTextClass } from '@/constants/card'
 import type { Card } from '@/types'
 import { avgSellPrice, foilSellPrice, stockLevelClass, totalStock } from '@/utils/card'
 import { cn } from '@/utils/cn'
@@ -30,7 +30,7 @@ export function StockTable({ cards, isEmpty, onView, onEdit, onRemove }: StockTa
               <span className="font-mono text-xs font-semibold text-muted-foreground">{c.setCode}</span>
             </TableCell>
             <TableCell>
-              <span className={cn('text-xs font-medium', RARITY_TEXT[c.rarity])}>{c.rarity}</span>
+              <span className={cn('text-xs font-medium', rarityTextClass(c.rarity))}>{c.rarity}</span>
             </TableCell>
             <TableCell>
               <span className={cn('font-mono font-semibold', stockLevelClass(stock))}>{stock}</span>
