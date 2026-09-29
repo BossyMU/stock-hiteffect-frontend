@@ -30,7 +30,7 @@ interface AddCardModalProps {
   onClose: () => void
 }
 
-/** Pick a card from the catalog and enter its per-foil stock and prices. */
+/** Pick a card from the catalog and enter its per-foil stock. */
 export function AddCardModal({ onSave, onClose }: AddCardModalProps) {
   const [form, setForm] = useState<Card>(emptyCard)
 
@@ -56,37 +56,30 @@ export function AddCardModal({ onSave, onClose }: AddCardModalProps) {
 
       <CatalogSearchSection selected={form.name ? form : null} onSelect={handleCatalogSelect} />
 
-      <FoilNumberGrid label="Stock" field="stock" form={form} onChange={setNumber} />
-      <FoilNumberGrid label="Price (฿)" field="price" form={form} onChange={setNumber} className="mt-4" />
+      <FoilStockGrid form={form} onChange={setNumber} />
 
       <ModalActions className="mt-6" onCancel={onClose} onConfirm={handleSave} confirmLabel="Add to Stock" />
     </Modal>
   )
 }
 
-function FoilNumberGrid({
-  label,
-  field,
+function FoilStockGrid({
   form,
   onChange,
-  className,
 }: {
-  label: string
-  field: 'stock' | 'price'
   form: Card
   onChange: (field: keyof Card, value: number) => void
-  className?: string
 }) {
   return (
-    <div className={cn('grid grid-cols-3 gap-3', className)}>
+    <div className="grid grid-cols-3 gap-3">
       {FORM_FOILS.map((foil) => {
         const style = FOIL_STYLES[foil]
-        const key = FOIL_FIELDS[foil][field]
+        const key = FOIL_FIELDS[foil].stock
         const id = `add-card-${key}`
         return (
           <div key={foil}>
             <FieldLabel htmlFor={id} className={style.text}>
-              {style.short} {label}
+              {style.short} Stock
             </FieldLabel>
             <TextInput
               id={id}

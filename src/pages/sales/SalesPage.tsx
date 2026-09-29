@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { ReceiptModal } from '@/components/orders'
 import {
   DataTable,
   FilterChip,
@@ -40,6 +41,7 @@ const HEADERS = ['Receipt', 'Date', 'Items', 'Payment', 'Total', 'Status', '']
 export default function SalesPage() {
   const { orders, updateOrderStatus } = useShopData()
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [viewOrder, setViewOrder] = useState<Order | null>(null)
 
   const filtered = useMemo(
     () => orders.filter((o) => matchesFilter(o, statusFilter)).sort((a, b) => b.date.localeCompare(a.date)),
@@ -90,7 +92,7 @@ export default function SalesPage() {
         emptyMessage="No orders match this filter."
       >
         {paged.map((o) => (
-          <TableRow key={o.id}>
+          <TableRow key={o.id} className="cursor-pointer" onClick={() => setViewOrder(o)}>
             <TableCell className="font-mono text-xs font-semibold text-primary">{o.receiptId}</TableCell>
             <TableCell className="font-mono text-xs text-muted-foreground">{o.date}</TableCell>
             <TableCell className="text-xs text-muted-foreground">
@@ -101,7 +103,7 @@ export default function SalesPage() {
             <TableCell>
               <StatusBadge status={o.status} />
             </TableCell>
-            <TableCell>
+            <TableCell onClick={(e) => e.stopPropagation()}>
               <Select
                 aria-label={`Change status of ${o.receiptId}`}
                 className="px-2 py-1 text-xs text-muted-foreground"
@@ -120,6 +122,8 @@ export default function SalesPage() {
       </DataTable>
 
       <Pagination page={page} total={total} pageSize={pageSize} onChange={setPage} />
+
+      {viewOrder && <ReceiptModal order={viewOrder} onClose={() => setViewOrder(null)} />}
     </div>
   )
 }
