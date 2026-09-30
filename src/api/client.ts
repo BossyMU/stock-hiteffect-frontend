@@ -1,9 +1,15 @@
 /** Thin fetch wrapper for stock-hiteffect-backend. */
 
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api').replace(
-  /\/$/,
-  '',
-)
+// Backend URL, including the /api prefix. VITE_API_BASE_URL (in .env or CI) overrides it when set.
+
+// Hosted backend on Vercel.
+const DEFAULT_API_BASE_URL = 'https://stock-hiteffect-backend.vercel.app/api'
+
+// Local backend (`npm run dev` in stock-hiteffect-backend): to develop against it,
+// comment out the Vercel line above and uncomment this one.
+// const DEFAULT_API_BASE_URL = 'http://localhost:3000/api'
+
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/$/, '')
 
 interface ApiErrorDetail {
   path: string

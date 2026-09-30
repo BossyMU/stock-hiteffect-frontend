@@ -18,25 +18,29 @@ It's built from the [TCG Shop Dashboard](https://www.figma.com/make/5jhrPQfYzCCM
 
 ## Getting started
 
-Start the backend first (see its README). By default the frontend calls `http://localhost:3000/api`.
+By default the frontend calls the hosted backend on Vercel: `https://stock-hiteffect-backend.vercel.app/api`.
 
 ```bash
 nvm use                  # Node version from .nvmrc
 npm install
-cp .env.example .env     # optional: only if the API isn't on http://localhost:3000/api
 npm run dev              # http://localhost:5173
 ```
+
+**Using a local backend.** Start stock-hiteffect-backend with `npm run dev` (see its README). Then do one of these:
+
+- In `src/api/client.ts`, comment out the Vercel `DEFAULT_API_BASE_URL` line and uncomment the `localhost` one.
+- Or, without editing code: `cp .env.example .env` and uncomment `VITE_API_BASE_URL=http://localhost:3000/api`.
 
 If the API can't be reached, the app shows "Can't load shop data" with a Retry button.
 
 ### Configuration
 
-| Variable            | Default                     | What it is                                        |
-| ------------------- | --------------------------- | ------------------------------------------------- |
-| `VITE_API_BASE_URL` | `http://localhost:3000/api` | Backend URL, including the `/api` prefix          |
-| `VITE_BASE_PATH`    | `/`                         | Path the app is served from (set by CI for Pages) |
+| Variable            | Default                               | What it is                                        |
+| ------------------- | ------------------------------------- | ------------------------------------------------- |
+| `VITE_API_BASE_URL` | the Vercel URL in `src/api/client.ts` | Backend URL, including the `/api` prefix          |
+| `VITE_BASE_PATH`    | `/`                                   | Path the app is served from (set by CI for Pages) |
 
-The backend only accepts requests from origins listed in its `CORS_ORIGINS` setting. That's `http://localhost:5173` by default.
+The backend only accepts requests from origins listed in its `CORS_ORIGINS` setting. On Vercel, set it to `https://bossymu.github.io,http://localhost:5173` so both the live site and the local dev server work.
 
 | Script              | What it does                         |
 | ------------------- | ------------------------------------ |
@@ -105,11 +109,4 @@ The site is hosted on **GitHub Pages**. The workflow in `.github/workflows/deplo
 
 It builds with `VITE_BASE_PATH=/<repo-name>/` and copies `index.html` to `404.html`, so deep links like `/stock` work on Pages.
 
-The live site needs a backend it can reach:
-
-1. Host stock-hiteffect-backend somewhere public over HTTPS.
-2. Add `https://bossymu.github.io` to the backend's `CORS_ORIGINS`.
-3. In this repo, go to **Settings → Secrets and variables → Actions → Variables** and set `VITE_API_BASE_URL` to the backend URL, e.g. `https://api.example.com/api`.
-4. Re-run the workflow.
-
-Until then, the Pages build calls `http://localhost:3000/api`.
+The live site calls the backend on Vercel (see stock-hiteffect-backend's README, "Deploy to Vercel"). If the backend's Vercel URL is different, change `DEFAULT_API_BASE_URL` in `src/api/client.ts`, or set a `VITE_API_BASE_URL` variable under **Settings → Secrets and variables → Actions → Variables**, then re-run the workflow.
